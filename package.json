@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cf:login": "wrangler login",
+    "cf:deploy": "wrangler deploy",
+    "cf:dev": "wrangler dev"
   },
   "dependencies": {
     "@dicebear/collection": "^9.2.4",

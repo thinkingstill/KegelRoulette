@@ -18,6 +18,7 @@ interface DurableObjectNamespace {
 }
 interface DurableObjectState {}
 type CFResponseInit = ResponseInit & { webSocket?: WebSocket };
+declare global { interface WebSocket { accept(): void } }
 
 export interface Env {
   ROOM_DO: DurableObjectNamespace;
