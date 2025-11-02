@@ -35,7 +35,7 @@ export default function RoomPage() {
         setWinnerIndex(winnerIndex);
       });
       // Request current state
-      s.emit("get-room", { roomId }, () => {});
+      s.emit("get-room", { roomId });
       // Heartbeat every 20s to keep active
       heartbeat = setInterval(() => {
         try {

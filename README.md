@@ -59,6 +59,19 @@
 
 > Fallback：如未设置 `NEXT_PUBLIC_WS_BASE`，前端将回退到 Socket.IO（路径 `/api/socket`），便于本地调试。
 
+本地调试 Cloudflare Worker：
+
+```bash
+npx wrangler dev
+# 得到本地地址，例如 http://127.0.0.1:8787
+
+# 在 .env.local（或 Vercel 环境变量）中设置：
+NEXT_PUBLIC_WS_BASE=http://127.0.0.1:8787
+
+# 之后运行前端：
+npm run dev
+```
+
 ## 关键目录结构
 
 ```
