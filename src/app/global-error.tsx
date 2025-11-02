@@ -1,4 +1,4 @@
-export const runtime = "edge";
+"use client";
 import GlobalErrorClient from "@/components/GlobalErrorClient";
 
 export default function GlobalError({
