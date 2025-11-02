@@ -2,12 +2,29 @@
 // This worker exposes a WebSocket endpoint at /ws?roomId=...&playerId=...
 // Messages are JSON: { type: string, payload?: any }
 
+// Minimal type shims to satisfy TypeScript outside Workers type environment
+declare class WebSocketPair {
+  0: WebSocket;
+  1: WebSocket;
+  constructor();
+}
+interface DurableObjectId {}
+interface DurableObjectStub {
+  fetch(request: Request): Promise<Response>;
+}
+interface DurableObjectNamespace {
+  idFromName(name: string): DurableObjectId;
+  get(id: DurableObjectId): DurableObjectStub;
+}
+interface DurableObjectState {}
+type CFResponseInit = ResponseInit & { webSocket?: WebSocket };
+
 export interface Env {
   ROOM_DO: DurableObjectNamespace;
 }
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/ws" && request.headers.get("Upgrade") === "websocket") {
       const roomId = url.searchParams.get("roomId") || "";
@@ -79,7 +96,7 @@ export class RoomDO {
     // Track this socket
     this.sockets.set(playerId, server);
 
-    server.addEventListener("message", (evt) => {
+    server.addEventListener("message", (evt: MessageEvent) => {
       try {
         const data = JSON.parse(typeof evt.data === "string" ? evt.data : "{}");
         const type = data?.type as string;
@@ -169,7 +186,7 @@ export class RoomDO {
       server.send(JSON.stringify({ type: "room-state", payload: this.room }));
     }
 
-    return new Response(null, { status: 101, webSocket: client });
+    return new Response(null, { status: 101, webSocket: client } as CFResponseInit);
   }
 
   broadcast(type: string, payload: any) {
