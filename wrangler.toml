@@ -6,3 +6,7 @@ compatibility_date = "2024-10-01"
 bindings = [
   {name = "ROOM_DO", class_name = "RoomDO"}
 ]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RoomDO"]
