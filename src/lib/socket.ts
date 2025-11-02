@@ -16,7 +16,7 @@ export async function ensureSocketServer() {
 export async function createSocket(roomId: string, playerId: string) {
   await ensureSocketServer();
   const socket: Socket = io({
-    transports: ["websocket"],
+    transports: ["polling", "websocket"],
     query: { roomId, playerId },
     path: "/api/socket",
   });
