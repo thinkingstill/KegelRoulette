@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 
+export const runtime = "edge";
+
 const notoSans = Noto_Sans_SC({
   // Next/font 对 Noto_Sans_SC 的可用 subsets 类型不支持 "chinese-simplified"
   // 使用受支持的子集以通过构建与类型检查

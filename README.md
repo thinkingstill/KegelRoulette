@@ -67,9 +67,16 @@ npm run dev
 
 1. 将仓库推送到 GitHub。
 2. 在 Cloudflare Dashboard → Pages 创建新项目，连接该仓库。
-3. 构建设置：Build Command 设为 `npm ci && npm run build`；Node 版本建议 20。
-4. 环境变量：添加 `NEXT_PUBLIC_WS_BASE=https://kegel-roulette-worker.<your>.workers.dev`。
-5. 完成后，Pages 会生成前端域名（如 `https://kegelroulette.pages.dev`），前端会自动连接到 Workers 的 `/ws` 实时接口。
+3. 框架预设：请选择 “Next.js”。
+   - 原因：项目包含动态路由 `src/app/room/[id]`，直接刷新房间页需要 Pages Functions 支持；选择 Next.js 预设可避免出现 404。
+   - 保持预设自动填入的默认构建命令与输出目录即可。
+4. 构建设置：建议 `NODE_VERSION=20`。
+5. 环境变量：添加 `NEXT_PUBLIC_WS_BASE=https://kegel-roulette-worker.<your>.workers.dev`。
+6. 完成后，Pages 会生成前端域名（如 `https://kegelroulette.pages.dev`），前端会自动连接到 Workers 的 `/ws` 实时接口。
+
+补充说明：
+- 仅当你的站点是纯静态（不含动态路由与 SSR）时，才可以不选框架预设，并设置 `Build command: npm ci && npm run build && npx next export`，`Output directory: out`。本项目为动态路由场景，不适用静态导出。
+- 刷新房间页出现 404 时，请检查：是否选择了 “Next.js” 框架预设、是否设置了 `NODE_VERSION=20`、是否已正确填入 `NEXT_PUBLIC_WS_BASE`。
 
 > 注：本项目前端以客户端渲染为主，未依赖 Next.js API 路由；生产环境实时通信由 Cloudflare Workers 提供。
 
