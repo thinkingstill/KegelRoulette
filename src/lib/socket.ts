@@ -18,6 +18,7 @@ export async function createSocket(roomId: string, playerId: string) {
   const socket: Socket = io({
     transports: ["websocket"],
     query: { roomId, playerId },
+    path: "/api/socket",
   });
   return socket;
 }

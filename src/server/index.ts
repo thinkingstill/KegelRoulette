@@ -24,7 +24,9 @@ const socketHandler = (req: NextApiRequest, res: SocketResponseWithIO) => {
     return;
   }
 
-  const io = new Server(res.socket.server);
+  const io = new Server(res.socket.server, {
+    path: '/api/socket',
+  });
   res.socket.server.io = io;
 
   io.on('connection', (socket: Socket) => {

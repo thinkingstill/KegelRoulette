@@ -17,7 +17,7 @@ export default function Home() {
     if (!nicknameCreate.trim()) return;
     setLoading(true);
     await ensureSocketServer();
-    const socket = io();
+    const socket = io({ path: "/api/socket", transports: ["websocket"] });
     const avatarSeed = randomSeed();
     socket.emit(
       "create-room",
@@ -34,7 +34,7 @@ export default function Home() {
     if (!nicknameJoin.trim() || !roomIdJoin.trim()) return;
     setLoading(true);
     await ensureSocketServer();
-    const socket = io();
+    const socket = io({ path: "/api/socket", transports: ["websocket"] });
     const avatarSeed = randomSeed();
     socket.emit(
       "join-room",
