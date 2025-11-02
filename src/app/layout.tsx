@@ -1,16 +1,7 @@
 import type { Metadata } from "next";
-import { Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 
 export const runtime = "edge";
-
-const notoSans = Noto_Sans_SC({
-  // Next/font 对 Noto_Sans_SC 的可用 subsets 类型不支持 "chinese-simplified"
-  // 使用受支持的子集以通过构建与类型检查
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  variable: "--font-sans",
-});
 
 export const metadata: Metadata = {
   title: "KegelRoulette",
@@ -19,12 +10,19 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="zh-Hans">
-      <body className={`${notoSans.variable} font-sans antialiased`}>
+      <head>
+        {/* ✅ 在线加载 Google Fonts（由浏览器加载，不会 Cloudflare 报错） */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="font-sans antialiased">
         {children}
       </body>
     </html>
