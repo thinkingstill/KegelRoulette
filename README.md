@@ -24,16 +24,40 @@
 
 > 提示：首次使用 Socket 连接前，前端会请求 `/api/socket` 来确保后端 Socket 服务就绪。
 
-## 部署到 Vercel（一键部署）
+## 生产部署方案
 
-本项目包含 `vercel.json` 配置，可直接在 Vercel 上导入并部署：
+### 方案 A：Vercel（前端托管）
 
-- 方式一：在 Vercel 控制台选择 “New Project” → 导入本仓库 → 默认设置即可。
-- 方式二：README 中的部署按钮（如已推送到 GitHub/GitLab）：
+本项目包含 `vercel.json` 配置，可在 Vercel 上一键部署前端：
+
+- 在 Vercel 控制台选择 “New Project” → 导入本仓库 → 默认设置即可。
+- 或使用部署按钮：
 
   [Deploy with Vercel](https://vercel.com/new/clone?repository-url=https://github.com/yourname/KegelRoulette)
 
-> 注意：Socket.IO 采用 Next.js API 路由（`/src/pages/api/socket.ts`）并通过 `res.socket.server` 复用单例服务器实例，适用于 Vercel 的 Node 运行时。
+> 提示：Vercel 的无服务器环境不保证持续的 WebSocket 连接。为保证实时性，本项目在生产环境建议配合 Cloudflare Workers 提供 WebSocket 服务，前端通过环境变量自动切换。
+
+### 方案 B：Cloudflare Workers（实时后端）
+
+本项目已提供 Cloudflare Workers + Durable Object 的实现（`workers/worker.ts` 与 `wrangler.toml`）。部署步骤：
+
+1. 安装 Wrangler 并登录 Cloudflare：
+   ```bash
+   npm i -D wrangler
+   npx wrangler login
+   ```
+2. 部署 Worker：
+   ```bash
+   npx wrangler deploy
+   ```
+3. 记录 Worker 访问地址，例如：`https://kegel-roulette-worker.<your>.workers.dev`
+4. 在 Vercel 项目设置中添加环境变量：
+   - `NEXT_PUBLIC_WS_BASE` = `https://kegel-roulette-worker.<your>.workers.dev`
+5. 重新在 Vercel 进行构建与发布。前端会自动使用 Cloudflare Worker 的 WebSocket 接入：
+   - 创建/加入房间：通过 Worker 的 `/ws?roomId=...&playerId=...` 建立 WS 连接并发送 `create-room` / `join-room` 消息
+   - 房间页：通过 `src/lib/realtime.ts` 连接 Worker，监听 `room-state`、`wheel-spun` 等事件
+
+> Fallback：如未设置 `NEXT_PUBLIC_WS_BASE`，前端将回退到 Socket.IO（路径 `/api/socket`），便于本地调试。
 
 ## 关键目录结构
 
@@ -59,7 +83,7 @@ src/
   - 若房间已无人且被自动删除，请重新创建房间。
 
 - WebSocket 在 Vercel 是否可用？
-  - 采用 Next.js 的 `res.socket.server` 单例模式，适配 Vercel 的 Node 运行时，兼容生产环境。
+  - Vercel 无服务器函数不保证持续 WebSocket 连接。在生产建议置于 Cloudflare Workers；若缺省则前端会使用 Socket.IO 并自动回退为轮询。
 
 ## 许可证
 

@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import { randomSeed } from "@/lib/avatars";
 import { ensureSocketServer } from "@/lib/socket";
 import { io } from "socket.io-client";
+import { nanoid } from "nanoid";
+
+const WS_BASE = process.env.NEXT_PUBLIC_WS_BASE;
 
 export default function Home() {
   const router = useRouter();
@@ -16,9 +19,29 @@ export default function Home() {
   async function handleCreateRoom() {
     if (!nicknameCreate.trim()) return;
     setLoading(true);
+    const avatarSeed = randomSeed();
+    if (WS_BASE) {
+      const roomId = nanoid(6);
+      const playerId = nanoid();
+      const wsUrl = (WS_BASE.startsWith("https") ? WS_BASE.replace("https", "wss") : WS_BASE.startsWith("http") ? WS_BASE.replace("http", "ws") : WS_BASE) + `/ws?roomId=${roomId}&playerId=${playerId}`;
+      const ws = new WebSocket(wsUrl);
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: "create-room", payload: { exerciseCount, nickname: nicknameCreate.trim(), avatarSeed } }));
+      };
+      ws.onmessage = (evt) => {
+        try {
+          const msg = JSON.parse(evt.data as string);
+          if (msg.type === "room-state") {
+            localStorage.setItem(`kr-player-${roomId}`, playerId);
+            ws.close();
+            router.push(`/room/${roomId}`);
+          }
+        } catch {}
+      };
+      return;
+    }
     await ensureSocketServer();
     const socket = io({ path: "/api/socket", transports: ["polling", "websocket"] });
-    const avatarSeed = randomSeed();
     socket.emit(
       "create-room",
       { exerciseCount, nickname: nicknameCreate.trim(), avatarSeed },
@@ -33,9 +56,32 @@ export default function Home() {
   async function handleJoinRoom() {
     if (!nicknameJoin.trim() || !roomIdJoin.trim()) return;
     setLoading(true);
+    const avatarSeed = randomSeed();
+    if (WS_BASE) {
+      const playerId = nanoid();
+      const roomId = roomIdJoin.trim();
+      const wsUrl = (WS_BASE.startsWith("https") ? WS_BASE.replace("https", "wss") : WS_BASE.startsWith("http") ? WS_BASE.replace("http", "ws") : WS_BASE) + `/ws?roomId=${roomId}&playerId=${playerId}`;
+      const ws = new WebSocket(wsUrl);
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: "join-room", payload: { nickname: nicknameJoin.trim(), avatarSeed } }));
+      };
+      ws.onmessage = (evt) => {
+        try {
+          const msg = JSON.parse(evt.data as string);
+          if (msg.type === "room-state") {
+            localStorage.setItem(`kr-player-${roomId}`, playerId);
+            ws.close();
+            router.push(`/room/${roomId}`);
+          } else if (msg.type === "error") {
+            alert(msg.payload || "加入房间失败");
+            ws.close();
+          }
+        } catch {}
+      };
+      return;
+    }
     await ensureSocketServer();
     const socket = io({ path: "/api/socket", transports: ["polling", "websocket"] });
-    const avatarSeed = randomSeed();
     socket.emit(
       "join-room",
       { roomId: roomIdJoin.trim(), nickname: nicknameJoin.trim(), avatarSeed },

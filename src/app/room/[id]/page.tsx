@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { createSocket } from "@/lib/socket";
+import { createRealtime } from "@/lib/realtime";
 import AvatarBadge from "@/components/AvatarBadge";
 import RouletteWheel from "@/components/RouletteWheel";
 import Link from "next/link";
@@ -28,7 +28,7 @@ export default function RoomPage() {
   useEffect(() => {
     if (!roomId || !playerId) return;
     let heartbeat: any;
-    createSocket(roomId, playerId).then((s) => {
+    createRealtime(roomId, playerId).then((s) => {
       setSocket(s);
       s.on("room-state", (r: Room) => setRoom(r));
       s.on("wheel-spun", ({ winnerIndex }: { winnerIndex: number }) => {
