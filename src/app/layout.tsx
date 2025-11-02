@@ -3,7 +3,9 @@ import { Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 
 const notoSans = Noto_Sans_SC({
-  subsets: ["chinese-simplified"],
+  // Next/font 对 Noto_Sans_SC 的可用 subsets 类型不支持 "chinese-simplified"
+  // 使用受支持的子集以通过构建与类型检查
+  subsets: ["latin"],
   weight: ["400", "500", "700"],
   variable: "--font-sans",
 });
