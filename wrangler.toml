@@ -10,12 +10,3 @@ bindings = [
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["RoomDO"]
-
-[build]
-command = "npm run build"
-
-[site]
-bucket = ".vercel/output/static"
-
-[pages]
-compatibility_flags = ["nodejs_compat"]
