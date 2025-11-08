@@ -1,5 +1,6 @@
 // app/global-error.tsx
 "use client";
+export const runtime = "edge";
 
 import ClientError from "./client-error";
 
