@@ -1,6 +1,6 @@
 name = "kegel-roulette-worker"
 main = "workers/worker.ts"
-compatibility_date = "2024-10-01"
+compatibility_date = "2024-05-08"
 
 [durable_objects]
 bindings = [
@@ -11,14 +11,11 @@ bindings = [
 tag = "v1"
 new_sqlite_classes = ["RoomDO"]
 
-# ✅ 新增：让构建器不强制 Edge Runtime
 [build]
 command = "npm run build"
 
-[build.environment]
-DISABLE_EDGE_RUNTIME = "true"
-NEXT_RUNTIME = "nodejs"
-
-# ✅ 如果你打算用 vercel build 输出到 .vercel/output
 [site]
 bucket = ".vercel/output/static"
+
+[pages]
+compatibility_flags = ["nodejs_compat"]
