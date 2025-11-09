@@ -1,6 +1,6 @@
 # KegelRoulette
 
-一个基于 Next.js 的多人“凯格尔运动轮盘”小应用。前端托管在 Cloudflare Pages，实时后端运行于 Cloudflare Workers（Durable Object）。支持创建/加入房间、轮盘随机抽取、完成次数统计、心跳保活与断线宽限期。
+一个基于 Next.js 的多人“凯格尔运动轮盘”小应用。前端可部署在 Vercel 或 Cloudflare Pages，实时后端运行于 Cloudflare Workers（Durable Object）。支持创建/加入房间、轮盘随机抽取、完成次数统计、心跳保活与断线宽限期。
 
 ## 功能特性
 
@@ -22,7 +22,7 @@
    ```
 3. 打开浏览器访问：`http://localhost:3000`
 
-## 生产部署（Cloudflare 全托管）
+## 生产部署
 
 ### Cloudflare Workers（实时后端）
 
@@ -38,9 +38,9 @@
    npx wrangler deploy
    ```
 3. 记录 Worker 访问地址，例如：`https://kegel-roulette-worker.<your>.workers.dev`
-4. 在 Cloudflare Pages 项目设置中添加环境变量：
+4. 将该地址配置到前端环境变量：
    - `NEXT_PUBLIC_WS_BASE` = `https://kegel-roulette-worker.<your>.workers.dev`
-5. 完成 Pages 构建与发布后，前端会自动使用 Cloudflare Worker 的 WebSocket 接入：
+5. 前端会自动使用 Cloudflare Worker 的 WebSocket 接入：
    - 创建/加入房间：通过 Worker 的 `/ws?roomId=...&playerId=...` 建立 WS 连接并发送 `create-room` / `join-room` 消息
    - 房间页：通过 `src/lib/realtime.ts` 连接 Worker，监听 `room-state`、`wheel-spun` 等事件
 
@@ -59,7 +59,25 @@ NEXT_PUBLIC_WS_BASE=http://127.0.0.1:8787
 npm run dev
 ```
 
-### Cloudflare Pages（前端托管）
+### Vercel（推荐前端托管）
+
+将前端部署在 Vercel，并通过环境变量指向上面部署的 Workers 实时后端：
+
+1. 在 Vercel 创建项目并连接到本仓库。
+2. 在项目 Settings → Environment Variables 添加：
+   - `NEXT_PUBLIC_WS_BASE = https://kegel-roulette-worker.<your>.workers.dev`
+   - 建议设置到 `Production` 与 `Preview` 两个环境。
+3. 部署 Production：使用 Vercel 控制台或命令行。
+   - 命令行（需已安装并链接项目）：
+     - `npm run build`
+     - `npx vercel deploy --prod --yes`
+4. 部署完成后，访问 Vercel 分配的域名，创建房间并验证实时连接。
+
+补充说明：
+- Vercel 不支持 Serverless WebSocket；本项目的实时连接完全走 Cloudflare Workers（`NEXT_PUBLIC_WS_BASE`）。
+- 若创建房间后页面一直显示“正在连接房间…”，请检查 `NEXT_PUBLIC_WS_BASE` 是否正确配置为你的 Worker 地址，且为 `https`（浏览器将自动转换为 `wss`）。
+
+### Cloudflare Pages（可选前端托管）
 
 将前端部署在 Cloudflare Pages，并通过环境变量指向上面部署的 Workers 实时后端：
 
@@ -84,6 +102,8 @@ npm run dev
   - `npm run cf:login` 登录 Cloudflare 账号
   - `npm run cf:deploy` 将 Worker 部署到 Cloudflare
   - `npm run cf:dev` 在本地启动 Worker 调试
+  - `npm run vercel:deploy` 将前端部署到 Vercel（需设置 `NEXT_PUBLIC_WS_BASE`）
+  - `npm run deploy:all` 依次部署 Cloudflare Workers 与 Vercel 前端（从环境变量读取 `NEXT_PUBLIC_WS_BASE`）
 
 - GitHub Action（推送即部署 Workers）：`.github/workflows/deploy-cloudflare.yml`
   - 在 GitHub 仓库的 Settings → Secrets 中添加：
@@ -93,7 +113,7 @@ npm run dev
 
 完成部署后，将 Worker 域名配置到前端环境变量：
 
-- 在 Cloudflare Pages 项目设置或 `.env.local` 中设置 `NEXT_PUBLIC_WS_BASE=https://<your-worker>.workers.dev`
+- 在 Vercel 或 Cloudflare Pages 项目设置中设置 `NEXT_PUBLIC_WS_BASE=https://<your-worker>.workers.dev`
 - 前端将自动通过 Cloudflare Worker 的 `/ws` 接入实时通信
 
 ## 关键目录结构
@@ -105,20 +125,21 @@ src/
   lib/                # 前端 WebSocket 客户端、头像种子
 ```
 
-## 配置项与默认值
+## 配置项与默认值（已修复房间持久化）
 
 - 断线清理周期：每 1 分钟检查
 - 宽限期：5 分钟（`INACTIVE_MS = 5 * 60 * 1000`）
 - 连续中奖上限：3 次
+- Durable Object：房间状态持久化到 `state.storage`，即使所有连接关闭也可恢复房间。
 
 ## 常见问题
 
 - 刷新后进不去房间？
-  - 已优化为断线不立刻移除玩家；若超过 5 分钟未活跃，房间会清理该玩家，请重新加入。
-  - 若房间已无人且被自动删除，请重新创建房间。
+  - 已加入 Durable Object 持久化：房间状态会保存到 `storage`，刷新或暂时断线后可恢复。
+  - 若超过 5 分钟未活跃会被清理，请重新加入。
 
 - 部署方式？
-  - 前端：Cloudflare Pages；后端：Cloudflare Workers（Durable Object）。通过 `NEXT_PUBLIC_WS_BASE` 将前端指向后端。
+  - 前端：Vercel 或 Cloudflare Pages；后端：Cloudflare Workers（Durable Object）。通过 `NEXT_PUBLIC_WS_BASE` 将前端指向后端。
 
 ## 许可证
 

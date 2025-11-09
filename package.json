@@ -9,7 +9,9 @@
     "lint": "eslint",
     "cf:login": "wrangler login",
     "cf:deploy": "wrangler deploy",
-    "cf:dev": "wrangler dev"
+    "cf:dev": "wrangler dev",
+    "vercel:deploy": "WS_BASE=$NEXT_PUBLIC_WS_BASE bash scripts/deploy-vercel.sh",
+    "deploy:all": "WS_BASE=$NEXT_PUBLIC_WS_BASE bash scripts/deploy-all.sh"
   },
   "dependencies": {
     "@dicebear/collection": "^9.2.4",

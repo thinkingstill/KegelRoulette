@@ -16,7 +16,10 @@ interface DurableObjectNamespace {
   idFromName(name: string): DurableObjectId;
   get(id: DurableObjectId): DurableObjectStub;
 }
-interface DurableObjectState {}
+// Minimal Durable Object state (runtime will provide the real type); keep it loose for TS
+interface DurableObjectState {
+  storage: any;
+}
 type CFResponseInit = ResponseInit & { webSocket?: WebSocket };
 declare global { interface WebSocket { accept(): void } }
 
@@ -62,6 +65,7 @@ export class RoomDO {
   env: Env;
   room: Room | null = null;
   sockets = new Map<string, WebSocket>();
+  static INACTIVE_MS = 5 * 60 * 1000; // 5 minutes
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -78,6 +82,14 @@ export class RoomDO {
     const roomId = url.searchParams.get("roomId") || "";
     if (!playerId || !roomId) return new Response("Missing params", { status: 400 });
 
+    // Lazy-load room state from storage if not present
+    if (!this.room) {
+      try {
+        const stored = await this.state.storage.get("room");
+        if (stored) this.room = stored as Room;
+      } catch {}
+    }
+
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
@@ -88,7 +100,7 @@ export class RoomDO {
     // Track this socket
     this.sockets.set(playerId, server);
 
-    server.addEventListener("message", (evt: MessageEvent) => {
+    server.addEventListener("message", async (evt: MessageEvent) => {
       try {
         const data = JSON.parse(typeof evt.data === "string" ? evt.data : "{}");
         const type = data?.type as string;
@@ -111,6 +123,7 @@ export class RoomDO {
               players: [creator],
               currentSpinnerIndex: 0,
             };
+            await this.saveRoom();
             this.broadcast("room-state", this.room);
             break;
           }
@@ -129,6 +142,7 @@ export class RoomDO {
             if (!exists) {
               this.room.players.push({ id: playerId, nickname, avatarSeed, completedCount: 0, lastActive: Date.now() });
             }
+            await this.saveRoom();
             this.broadcast("room-state", this.room);
             break;
           }
@@ -153,6 +167,7 @@ export class RoomDO {
             }
             const winnerId = this.room.players[winnerIndex].id;
             this.registerWinner(winnerId);
+            await this.saveRoom();
             this.broadcast("wheel-spun", { winnerIndex });
             break;
           }
@@ -162,11 +177,14 @@ export class RoomDO {
             this.touch(pid);
             this.incrementCompleted(pid, this.room.exerciseCount);
             this.setSpinnerByPlayerId(pid);
+            await this.saveRoom();
             this.broadcast("room-state", this.room);
             break;
           }
           case "heartbeat": {
             this.touch(playerId);
+            await this.cleanupInactive();
+            await this.saveRoom();
             break;
           }
         }
@@ -221,6 +239,30 @@ export class RoomDO {
     } else {
       this.room.lastWinnerId = pid;
       this.room.lastWinnerStreak = 1;
+    }
+  }
+
+  async saveRoom() {
+    try {
+      if (this.room) await this.state.storage.put("room", this.room);
+      else await this.state.storage.delete?.("room");
+    } catch {}
+  }
+
+  async cleanupInactive() {
+    if (!this.room) return;
+    const now = Date.now();
+    const before = this.room.players.length;
+    this.room.players = this.room.players.filter((p) => (p.lastActive ?? 0) > now - RoomDO.INACTIVE_MS);
+    // Reset spinner index if needed
+    if (this.room.currentSpinnerIndex >= this.room.players.length) {
+      this.room.currentSpinnerIndex = 0;
+    }
+    if (before !== this.room.players.length) {
+      this.broadcast("room-state", this.room);
+    }
+    if (this.room.players.length === 0) {
+      this.room = null;
     }
   }
 }

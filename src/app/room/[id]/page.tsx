@@ -1,7 +1,7 @@
 export const runtime = "edge";
 import RoomClient from "./RoomClient";
 
-export default function RoomPage({ params }: { params: { id: string } }) {
-  const roomId = params?.id;
-  return <RoomClient roomId={roomId} />;
+export default async function RoomPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <RoomClient roomId={id} />;
 }
