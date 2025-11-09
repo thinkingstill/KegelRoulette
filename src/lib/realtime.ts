@@ -13,14 +13,8 @@ export async function createRealtime(roomId: string, playerId: string): Promise<
     const wsUrl = (WS_BASE.startsWith("https") ? WS_BASE.replace("https", "wss") : WS_BASE.startsWith("http") ? WS_BASE.replace("http", "ws") : WS_BASE) + `/ws?roomId=${roomId}&playerId=${playerId}`;
     const ws = new WebSocket(wsUrl);
     const handlers: Record<string, ((data: any) => void)[]> = {};
-    ws.onmessage = (evt) => {
-      try {
-        const msg = JSON.parse(evt.data as string);
-        const { type, payload } = msg || {};
-        if (handlers[type]) handlers[type].forEach((h) => h(payload));
-      } catch {}
-    };
-    return {
+
+    const buildWSRealtime = (): Realtime => ({
       on: (event, cb) => {
         handlers[event] = handlers[event] || [];
         handlers[event].push(cb);
@@ -31,7 +25,32 @@ export async function createRealtime(roomId: string, playerId: string): Promise<
       disconnect: () => {
         try { ws.close(); } catch {}
       },
+    });
+
+    const buildSocketRealtime = (): Realtime => {
+      const socket: Socket = io({ transports: ["polling", "websocket"], query: { roomId, playerId }, path: "/api/socket" });
+      return {
+        on: (event, cb) => socket.on(event, cb),
+        emit: (event, payload) => socket.emit(event, payload),
+        disconnect: () => socket.disconnect(),
+      };
     };
+
+    return await new Promise<Realtime>((resolve) => {
+      let settled = false;
+      const settle = (rt: Realtime) => { if (!settled) { settled = true; resolve(rt); } };
+      ws.onopen = () => settle(buildWSRealtime());
+      ws.onerror = () => settle(buildSocketRealtime());
+      ws.onclose = () => settle(buildSocketRealtime());
+      setTimeout(() => settle(buildSocketRealtime()), 4000);
+      ws.onmessage = (evt) => {
+        try {
+          const msg = JSON.parse(evt.data as string);
+          const { type, payload } = msg || {};
+          if (handlers[type]) handlers[type].forEach((h) => h(payload));
+        } catch {}
+      };
+    });
   }
 
   const socket: Socket = io({ transports: ["polling", "websocket"], query: { roomId, playerId }, path: "/api/socket" });

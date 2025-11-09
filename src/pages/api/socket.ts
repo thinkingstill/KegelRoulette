@@ -1,8 +1,13 @@
-// Cloudflare Pages（Next.js 预设）要求非静态路由使用 Edge Runtime。
-// 该 API 仅用于本地开发的 Socket.IO 启动，在生产（Pages）下不需要，提供 Edge 兼容占位实现。
+// Vercel 部署：在 Node.js 运行时启动 Socket.IO 服务器
+import type { NextApiRequest, NextApiResponse } from 'next';
+import socketHandler from '@/server/index';
 
-export const config = { runtime: 'edge' };
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
-export default async function handler(_req: Request): Promise<Response> {
-  return new Response('OK', { status: 200 });
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  return socketHandler(req, res as any);
 }

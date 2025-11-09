@@ -25,6 +25,24 @@ export default function HomeClient() {
       const playerId = nanoid();
       const wsUrl = (WS_BASE.startsWith("https") ? WS_BASE.replace("https", "wss") : WS_BASE.startsWith("http") ? WS_BASE.replace("http", "ws") : WS_BASE) + `/ws?roomId=${roomId}&playerId=${playerId}`;
       const ws = new WebSocket(wsUrl);
+      let fellBack = false;
+      const fallbackToSocketIO = async () => {
+        if (fellBack) return;
+        fellBack = true;
+        try {
+          await ensureSocketServer();
+          const socket = io({ path: "/api/socket", transports: ["polling", "websocket"] });
+          socket.emit(
+            "create-room",
+            { exerciseCount, nickname: nicknameCreate.trim(), avatarSeed },
+            ({ roomId: rId, playerId: pId }: { roomId: string; playerId: string }) => {
+              localStorage.setItem(`kr-player-${rId}`, pId);
+              router.push(`/room/${rId}`);
+              socket.disconnect();
+            }
+          );
+        } catch {}
+      };
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: "create-room", payload: { exerciseCount, nickname: nicknameCreate.trim(), avatarSeed } }));
       };
@@ -38,6 +56,13 @@ export default function HomeClient() {
           }
         } catch {}
       };
+      ws.onerror = () => fallbackToSocketIO();
+      ws.onclose = (ev) => {
+        // If closed without having navigated, fallback
+        if (!fellBack) fallbackToSocketIO();
+      };
+      // Timeout fallback if ws never opens
+      setTimeout(() => fallbackToSocketIO(), 4000);
       return;
     }
     await ensureSocketServer();
@@ -62,6 +87,29 @@ export default function HomeClient() {
       const roomId = roomIdJoin.trim();
       const wsUrl = (WS_BASE.startsWith("https") ? WS_BASE.replace("https", "wss") : WS_BASE.startsWith("http") ? WS_BASE.replace("http", "ws") : WS_BASE) + `/ws?roomId=${roomId}&playerId=${playerId}`;
       const ws = new WebSocket(wsUrl);
+      let fellBack = false;
+      const fallbackToSocketIO = async (errorMsg?: string) => {
+        if (fellBack) return;
+        fellBack = true;
+        try {
+          await ensureSocketServer();
+          const socket = io({ path: "/api/socket", transports: ["polling", "websocket"] });
+          socket.emit(
+            "join-room",
+            { roomId: roomIdJoin.trim(), nickname: nicknameJoin.trim(), avatarSeed },
+            ({ playerId: pId, error }: { playerId?: string; error?: string }) => {
+              const err = error || errorMsg;
+              if (err) {
+                alert(err);
+              } else if (pId) {
+                localStorage.setItem(`kr-player-${roomIdJoin}`, pId);
+                router.push(`/room/${roomIdJoin.trim()}`);
+              }
+              socket.disconnect();
+            }
+          );
+        } catch {}
+      };
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: "join-room", payload: { nickname: nicknameJoin.trim(), avatarSeed } }));
       };
@@ -78,6 +126,9 @@ export default function HomeClient() {
           }
         } catch {}
       };
+      ws.onerror = () => fallbackToSocketIO("WebSocket 连接失败，已回退到备用通道");
+      ws.onclose = () => fallbackToSocketIO();
+      setTimeout(() => fallbackToSocketIO(), 4000);
       return;
     }
     await ensureSocketServer();
