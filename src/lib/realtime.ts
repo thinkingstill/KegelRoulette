@@ -1,4 +1,4 @@
-import { io, Socket } from "socket.io-client";
+// WebSocket-only realtime client for Cloudflare Worker
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_BASE;
 const toWsBase = (base?: string) => {
@@ -16,55 +16,35 @@ export type Realtime = {
 };
 
 export async function createRealtime(roomId: string, playerId: string): Promise<Realtime> {
-  if (WS_BASE) {
-    const wsBase = toWsBase(WS_BASE);
-    const wsUrl = `${wsBase}/ws?roomId=${roomId}&playerId=${playerId}`;
-    const ws = new WebSocket(wsUrl);
-    const handlers: Record<string, ((data: any) => void)[]> = {};
-
-    const buildWSRealtime = (): Realtime => ({
-      on: (event, cb) => {
-        handlers[event] = handlers[event] || [];
-        handlers[event].push(cb);
-      },
-      emit: (event, payload) => {
-        try { ws.send(JSON.stringify({ type: event, payload })); } catch {}
-      },
-      disconnect: () => {
-        try { ws.close(); } catch {}
-      },
-    });
-
-    const buildSocketRealtime = (): Realtime => {
-      const socket: Socket = io({ transports: ["polling", "websocket"], query: { roomId, playerId }, path: "/api/socket" });
-      return {
-        on: (event, cb) => socket.on(event, cb),
-        emit: (event, payload) => socket.emit(event, payload),
-        disconnect: () => socket.disconnect(),
-      };
-    };
-
-    return await new Promise<Realtime>((resolve) => {
-      let settled = false;
-      const settle = (rt: Realtime) => { if (!settled) { settled = true; resolve(rt); } };
-      ws.onopen = () => settle(buildWSRealtime());
-      ws.onerror = () => settle(buildSocketRealtime());
-      ws.onclose = () => settle(buildSocketRealtime());
-      setTimeout(() => settle(buildSocketRealtime()), 4000);
-      ws.onmessage = (evt) => {
-        try {
-          const msg = JSON.parse(evt.data as string);
-          const { type, payload } = msg || {};
-          if (handlers[type]) handlers[type].forEach((h) => h(payload));
-        } catch {}
-      };
-    });
+  if (!WS_BASE) {
+    return Promise.reject(new Error("NEXT_PUBLIC_WS_BASE 未配置，无法建立 WebSocket 连接"));
   }
+  const wsBase = toWsBase(WS_BASE);
+  const wsUrl = `${wsBase}/ws?roomId=${roomId}&playerId=${playerId}`;
+  const ws = new WebSocket(wsUrl);
+  const handlers: Record<string, ((data: any) => void)[]> = {};
 
-  const socket: Socket = io({ transports: ["polling", "websocket"], query: { roomId, playerId }, path: "/api/socket" });
-  return {
-    on: (event, cb) => socket.on(event, cb),
-    emit: (event, payload) => socket.emit(event, payload),
-    disconnect: () => socket.disconnect(),
-  };
+  const buildWSRealtime = (): Realtime => ({
+    on: (event, cb) => {
+      handlers[event] = handlers[event] || [];
+      handlers[event].push(cb);
+    },
+    emit: (event, payload) => {
+      try { ws.send(JSON.stringify({ type: event, payload })); } catch {}
+    },
+    disconnect: () => {
+      try { ws.close(); } catch {}
+    },
+  });
+
+  return await new Promise<Realtime>((resolve) => {
+    ws.onopen = () => resolve(buildWSRealtime());
+    ws.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data as string);
+        const { type, payload } = msg || {};
+        if (handlers[type]) handlers[type].forEach((h) => h(payload));
+      } catch {}
+    };
+  });
 }

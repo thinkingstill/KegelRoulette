@@ -83,16 +83,7 @@ export class RoomDO {
     const server = pair[1];
     server.accept();
 
-    // Ensure room skeleton
-    if (!this.room) {
-      this.room = {
-        id: roomId,
-        creatorId: "",
-        exerciseCount: 10,
-        players: [],
-        currentSpinnerIndex: 0,
-      };
-    }
+    // Do not auto-create rooms on connect; only "create-room" should initialize.
 
     // Track this socket
     this.sockets.set(playerId, server);
@@ -124,7 +115,15 @@ export class RoomDO {
             break;
           }
           case "join-room": {
-            if (!this.room) break;
+            if (!this.room) {
+              server.send(
+                JSON.stringify({
+                  type: "error",
+                  payload: { code: "ROOM_NOT_FOUND", message: "房间不存在或尚未创建" },
+                })
+              );
+              break;
+            }
             const { nickname, avatarSeed } = payload || {};
             const exists = this.room.players.find((p) => p.id === playerId);
             if (!exists) {

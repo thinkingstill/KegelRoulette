@@ -2,8 +2,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { randomSeed } from "@/lib/avatars";
-import { ensureSocketServer } from "@/lib/socket";
-import { io } from "socket.io-client";
 import { nanoid } from "nanoid";
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_BASE;
@@ -27,134 +25,61 @@ export default function HomeClient() {
     if (!nicknameCreate.trim()) return;
     setLoading(true);
     const avatarSeed = randomSeed();
-    if (WS_BASE) {
-      const roomId = nanoid(6);
-      const playerId = nanoid();
-      const wsBase = toWsBase(WS_BASE);
-      const wsUrl = `${wsBase}/ws?roomId=${roomId}&playerId=${playerId}`;
-      const ws = new WebSocket(wsUrl);
-      let fellBack = false;
-      const fallbackToSocketIO = async () => {
-        if (fellBack) return;
-        fellBack = true;
-        try {
-          await ensureSocketServer();
-          const socket = io({ path: "/api/socket", transports: ["polling", "websocket"] });
-          socket.emit(
-            "create-room",
-            { exerciseCount, nickname: nicknameCreate.trim(), avatarSeed },
-            ({ roomId: rId, playerId: pId }: { roomId: string; playerId: string }) => {
-              localStorage.setItem(`kr-player-${rId}`, pId);
-              router.push(`/room/${rId}`);
-              socket.disconnect();
-            }
-          );
-        } catch {}
-      };
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: "create-room", payload: { exerciseCount, nickname: nicknameCreate.trim(), avatarSeed } }));
-      };
-      ws.onmessage = (evt) => {
-        try {
-          const msg = JSON.parse(evt.data as string);
-          if (msg.type === "room-state") {
-            localStorage.setItem(`kr-player-${roomId}`, playerId);
-            ws.close();
-            router.push(`/room/${roomId}`);
-          }
-        } catch {}
-      };
-      ws.onerror = () => fallbackToSocketIO();
-      ws.onclose = (ev) => {
-        // If closed without having navigated, fallback
-        if (!fellBack) fallbackToSocketIO();
-      };
-      // Timeout fallback if ws never opens
-      setTimeout(() => fallbackToSocketIO(), 4000);
+    if (!WS_BASE) {
+      console.error("NEXT_PUBLIC_WS_BASE 未配置，无法建立 WebSocket 连接");
+      setLoading(false);
       return;
     }
-    await ensureSocketServer();
-    const socket = io({ path: "/api/socket", transports: ["polling", "websocket"] });
-    socket.emit(
-      "create-room",
-      { exerciseCount, nickname: nicknameCreate.trim(), avatarSeed },
-      ({ roomId, playerId }: { roomId: string; playerId: string }) => {
-        localStorage.setItem(`kr-player-${roomId}`, playerId);
-        router.push(`/room/${roomId}`);
-        socket.disconnect();
-      }
-    );
+    const roomId = nanoid(6);
+    const playerId = nanoid();
+    const wsBase = toWsBase(WS_BASE);
+    const wsUrl = `${wsBase}/ws?roomId=${roomId}&playerId=${playerId}`;
+    const ws = new WebSocket(wsUrl);
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: "create-room", payload: { exerciseCount, nickname: nicknameCreate.trim(), avatarSeed } }));
+    };
+    ws.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data as string);
+        if (msg.type === "room-state") {
+          localStorage.setItem(`kr-player-${roomId}`, playerId);
+          ws.close();
+          router.push(`/room/${roomId}`);
+        }
+      } catch {}
+    };
   }
 
   async function handleJoinRoom() {
     if (!nicknameJoin.trim() || !roomIdJoin.trim()) return;
     setLoading(true);
     const avatarSeed = randomSeed();
-    if (WS_BASE) {
-      const playerId = nanoid();
-      const roomId = roomIdJoin.trim();
-      const wsBase = toWsBase(WS_BASE);
-      const wsUrl = `${wsBase}/ws?roomId=${roomId}&playerId=${playerId}`;
-      const ws = new WebSocket(wsUrl);
-      let fellBack = false;
-      const fallbackToSocketIO = async (errorMsg?: string) => {
-        if (fellBack) return;
-        fellBack = true;
-        try {
-          await ensureSocketServer();
-          const socket = io({ path: "/api/socket", transports: ["polling", "websocket"] });
-          socket.emit(
-            "join-room",
-            { roomId: roomIdJoin.trim(), nickname: nicknameJoin.trim(), avatarSeed },
-            ({ playerId: pId, error }: { playerId?: string; error?: string }) => {
-              const err = error || errorMsg;
-              if (err) {
-                alert(err);
-              } else if (pId) {
-                localStorage.setItem(`kr-player-${roomIdJoin}`, pId);
-                router.push(`/room/${roomIdJoin.trim()}`);
-              }
-              socket.disconnect();
-            }
-          );
-        } catch {}
-      };
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: "join-room", payload: { nickname: nicknameJoin.trim(), avatarSeed } }));
-      };
-      ws.onmessage = (evt) => {
-        try {
-          const msg = JSON.parse(evt.data as string);
-          if (msg.type === "room-state") {
-            localStorage.setItem(`kr-player-${roomId}`, playerId);
-            ws.close();
-            router.push(`/room/${roomId}`);
-          } else if (msg.type === "error") {
-            alert(msg.payload || "加入房间失败");
-            ws.close();
-          }
-        } catch {}
-      };
-      ws.onerror = () => fallbackToSocketIO("WebSocket 连接失败，已回退到备用通道");
-      ws.onclose = () => fallbackToSocketIO();
-      setTimeout(() => fallbackToSocketIO(), 4000);
+    if (!WS_BASE) {
+      console.error("NEXT_PUBLIC_WS_BASE 未配置，无法建立 WebSocket 连接");
+      setLoading(false);
       return;
     }
-    await ensureSocketServer();
-    const socket = io({ path: "/api/socket", transports: ["polling", "websocket"] });
-    socket.emit(
-      "join-room",
-      { roomId: roomIdJoin.trim(), nickname: nicknameJoin.trim(), avatarSeed },
-      ({ playerId, error }: { playerId?: string; error?: string }) => {
-        if (error) {
-          alert(error);
-        } else if (playerId) {
-          localStorage.setItem(`kr-player-${roomIdJoin}`, playerId);
-          router.push(`/room/${roomIdJoin.trim()}`);
+    const playerId = nanoid();
+    const roomId = roomIdJoin.trim();
+    const wsBase = toWsBase(WS_BASE);
+    const wsUrl = `${wsBase}/ws?roomId=${roomId}&playerId=${playerId}`;
+    const ws = new WebSocket(wsUrl);
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: "join-room", payload: { nickname: nicknameJoin.trim(), avatarSeed } }));
+    };
+    ws.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data as string);
+        if (msg.type === "room-state") {
+          localStorage.setItem(`kr-player-${roomId}`, playerId);
+          ws.close();
+          router.push(`/room/${roomId}`);
+        } else if (msg.type === "error") {
+          alert(msg.payload || "加入房间失败");
+          ws.close();
         }
-        socket.disconnect();
-      }
-    );
+      } catch {}
+    };
   }
 
   return (

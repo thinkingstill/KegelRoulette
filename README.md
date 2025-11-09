@@ -22,8 +22,6 @@
    ```
 3. 打开浏览器访问：`http://localhost:3000`
 
-> 提示：首次使用 Socket 连接前，前端会请求 `/api/socket` 来确保后端 Socket 服务就绪。
-
 ## 生产部署（Cloudflare 全托管）
 
 ### Cloudflare Workers（实时后端）
@@ -46,7 +44,7 @@
    - 创建/加入房间：通过 Worker 的 `/ws?roomId=...&playerId=...` 建立 WS 连接并发送 `create-room` / `join-room` 消息
    - 房间页：通过 `src/lib/realtime.ts` 连接 Worker，监听 `room-state`、`wheel-spun` 等事件
 
-> Fallback：如未设置 `NEXT_PUBLIC_WS_BASE`，前端仅在本地开发回退到 Socket.IO（路径 `/api/socket`）。
+> 注意：必须配置 `NEXT_PUBLIC_WS_BASE` 指向你的 Cloudflare Worker 地址，否则无法建立实时连接。
 
 本地调试 Cloudflare Worker：
 
@@ -104,9 +102,7 @@ npm run dev
 src/
   app/                # Next.js App 路由（首页与房间页）
   components/         # AvatarBadge、RouletteWheel 等组件
-  lib/                # 前端 socket 客户端、头像种子
-  pages/api/socket.ts # 仅用于本地开发的 Socket.IO 入口（生产使用 Cloudflare Workers）
-  server/             # 房间与玩家的服务端逻辑（本地开发）
+  lib/                # 前端 WebSocket 客户端、头像种子
 ```
 
 ## 配置项与默认值
