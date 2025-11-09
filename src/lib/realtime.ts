@@ -1,6 +1,13 @@
 import { io, Socket } from "socket.io-client";
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_BASE;
+const toWsBase = (base?: string) => {
+  if (!base) return undefined;
+  const trimmed = base.replace(/\/+$/, "");
+  if (trimmed.startsWith("https")) return trimmed.replace(/^https/, "wss");
+  if (trimmed.startsWith("http")) return trimmed.replace(/^http/, "ws");
+  return trimmed;
+};
 
 export type Realtime = {
   on: (event: string, cb: (data: any) => void) => void;
@@ -10,7 +17,8 @@ export type Realtime = {
 
 export async function createRealtime(roomId: string, playerId: string): Promise<Realtime> {
   if (WS_BASE) {
-    const wsUrl = (WS_BASE.startsWith("https") ? WS_BASE.replace("https", "wss") : WS_BASE.startsWith("http") ? WS_BASE.replace("http", "ws") : WS_BASE) + `/ws?roomId=${roomId}&playerId=${playerId}`;
+    const wsBase = toWsBase(WS_BASE);
+    const wsUrl = `${wsBase}/ws?roomId=${roomId}&playerId=${playerId}`;
     const ws = new WebSocket(wsUrl);
     const handlers: Record<string, ((data: any) => void)[]> = {};
 

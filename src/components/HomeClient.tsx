@@ -7,6 +7,13 @@ import { io } from "socket.io-client";
 import { nanoid } from "nanoid";
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_BASE;
+const toWsBase = (base?: string) => {
+  if (!base) return undefined;
+  const trimmed = base.replace(/\/+$/, "");
+  if (trimmed.startsWith("https")) return trimmed.replace(/^https/, "wss");
+  if (trimmed.startsWith("http")) return trimmed.replace(/^http/, "ws");
+  return trimmed;
+};
 
 export default function HomeClient() {
   const router = useRouter();
@@ -23,7 +30,8 @@ export default function HomeClient() {
     if (WS_BASE) {
       const roomId = nanoid(6);
       const playerId = nanoid();
-      const wsUrl = (WS_BASE.startsWith("https") ? WS_BASE.replace("https", "wss") : WS_BASE.startsWith("http") ? WS_BASE.replace("http", "ws") : WS_BASE) + `/ws?roomId=${roomId}&playerId=${playerId}`;
+      const wsBase = toWsBase(WS_BASE);
+      const wsUrl = `${wsBase}/ws?roomId=${roomId}&playerId=${playerId}`;
       const ws = new WebSocket(wsUrl);
       let fellBack = false;
       const fallbackToSocketIO = async () => {
@@ -85,7 +93,8 @@ export default function HomeClient() {
     if (WS_BASE) {
       const playerId = nanoid();
       const roomId = roomIdJoin.trim();
-      const wsUrl = (WS_BASE.startsWith("https") ? WS_BASE.replace("https", "wss") : WS_BASE.startsWith("http") ? WS_BASE.replace("http", "ws") : WS_BASE) + `/ws?roomId=${roomId}&playerId=${playerId}`;
+      const wsBase = toWsBase(WS_BASE);
+      const wsUrl = `${wsBase}/ws?roomId=${roomId}&playerId=${playerId}`;
       const ws = new WebSocket(wsUrl);
       let fellBack = false;
       const fallbackToSocketIO = async (errorMsg?: string) => {
